@@ -70,7 +70,6 @@ export default function Register() {
 
   const navigate = useNavigate();
 
-  // Select / deselect skill
   const handleToggleSkill = (skillName) => {
     setForm((prevForm) => {
       const isSelected = prevForm.skills.some(
@@ -88,7 +87,6 @@ export default function Register() {
     });
   };
 
-  // Add custom skill
   const handleAddCustomSkill = () => {
     const skill = customSkill.trim();
 
@@ -108,12 +106,10 @@ export default function Register() {
     setCustomSkill('');
   };
 
-  // Search predefined skills
   const filteredSkills = SKILL_OPTIONS.filter((skill) =>
     skill.name.toLowerCase().includes(skillSearch.toLowerCase())
   );
 
-  // Register
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -141,7 +137,6 @@ export default function Register() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
 
-        {/* Full Name */}
         <div className="flex flex-col gap-1.5">
 
           <label
@@ -168,7 +163,6 @@ export default function Register() {
 
         </div>
 
-        {/* Email */}
         <div className="flex flex-col gap-1.5">
 
           <label
@@ -195,7 +189,6 @@ export default function Register() {
 
         </div>
 
-        {/* Password */}
         <div className="flex flex-col gap-1.5">
 
           <label
@@ -223,7 +216,6 @@ export default function Register() {
 
         </div>
 
-        {/* Account Role */}
         <div className="flex flex-col gap-1.5">
 
           <label
@@ -250,7 +242,6 @@ export default function Register() {
 
         </div>
 
-        {/* Skills */}
         <div className="space-y-3">
 
           <div>
@@ -271,7 +262,6 @@ export default function Register() {
             />
           </div>
 
-          {/* Available Skills */}
           <div className="flex flex-wrap gap-2 max-h-52 overflow-y-auto pr-1">
 
             {filteredSkills.map((skill) => {
@@ -312,7 +302,6 @@ export default function Register() {
 
           </div>
 
-          {/* Custom Skill */}
           <div className="flex gap-2">
 
             <input
@@ -332,14 +321,13 @@ export default function Register() {
             <button
               type="button"
               onClick={handleAddCustomSkill}
-              className="px-4 py-3 rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors"
+              className="px-4 py-3 h-fit w-fit rounded-xl bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition-colors"
             >
               + Add
             </button>
 
           </div>
 
-          {/* Selected Skills */}
           {form.skills.length > 0 && (
             <div className="pt-1">
 
@@ -367,7 +355,6 @@ export default function Register() {
 
         </div>
 
-        {/* Create Account */}
         <button
           type="submit"
           disabled={loading}
@@ -388,7 +375,6 @@ export default function Register() {
 
         </button>
 
-        {/* Login Link */}
         <p className="text-center text-xs text-slate-500 mt-4">
 
           Already registered?{' '}
