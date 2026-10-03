@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { getUser, clearSession } from '../lib/auth'
 import { closeSocket } from '../lib/socket'
+import EnableNotifications from '../components/EnableNotifications'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
     faHouse,
