@@ -1,8 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api, { getError } from '../lib/api';
 import { getUser } from '../lib/auth';
 import { Spinner, Empty, Toast } from '../components/UI';
+
+// Rating 1-5 hai to rated maano, null/undefined/0 ho to unrated
+const isRated = (a) =>
+  a?.rating !== null && a?.rating !== undefined && Number(a.rating) > 0;
 
 export default function Appointments() {
   const user = getUser();
@@ -22,62 +26,91 @@ export default function Appointments() {
   const [review, setReview] = useState('');
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  // Pichli baar ka status yaad rakhta hai, taaki "accepted -> completed" change pakad sake
+  const prevStatusRef = useRef(new Map());
 
-    try {
-      if (isMentor) {
-        const [requestsRes, appointmentsRes] = await Promise.all([
-          api.get('/appointments/my-requests'),
-          api.get('/appointments/my-appointments'),
-        ]);
+  // silent = true: polling ke time spinner/error toast nahi dikhana
+  const load = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
 
-        const pendingRequests = Array.isArray(requestsRes.data)
-          ? requestsRes.data
-          : [];
+      try {
+        let list = [];
 
-        const allAppointments = Array.isArray(appointmentsRes.data)
-          ? appointmentsRes.data
-          : [];
+        if (isMentor) {
+          const [requestsRes, appointmentsRes] = await Promise.all([
+            api.get('/appointments/my-requests'),
+            api.get('/appointments/my-appointments'),
+          ]);
 
-        const appointmentMap = new Map();
+          const pendingRequests = Array.isArray(requestsRes.data)
+            ? requestsRes.data
+            : [];
 
-        [...pendingRequests, ...allAppointments].forEach((appointment) => {
-          appointmentMap.set(appointment._id, appointment);
-        });
+          const allAppointments = Array.isArray(appointmentsRes.data)
+            ? appointmentsRes.data
+            : [];
 
-        setItems([...appointmentMap.values()]);
-      } else {
-        const { data } = await api.get(
-          '/appointments/my-appointments'
-        );
+          const appointmentMap = new Map();
 
-        setItems(Array.isArray(data) ? data : []);
+          [...pendingRequests, ...allAppointments].forEach((appointment) => {
+            appointmentMap.set(appointment._id, appointment);
+          });
+
+          list = [...appointmentMap.values()];
+        } else {
+          const { data } = await api.get('/appointments/my-appointments');
+          list = Array.isArray(data) ? data : [];
+        }
+
+        // Learner: mentor ne abhi session complete kiya to rating popup khud khul jaye
+        if (!isMentor) {
+          const justCompleted = list.find((a) => {
+            const prev = prevStatusRef.current.get(a._id);
+            return (
+              prev !== undefined &&
+              prev !== 'completed' &&
+              a.status === 'completed' &&
+              !isRated(a)
+            );
+          });
+
+          if (justCompleted) {
+            setRatingAppointment((prev) => prev || justCompleted);
+            setMsg('Mentor marked the session completed. Please rate your mentor.');
+          }
+        }
+
+        prevStatusRef.current = new Map(list.map((a) => [a._id, a.status]));
+        setItems(list);
+      } catch (e) {
+        if (!silent) setMsg(getError(e));
+      } finally {
+        if (!silent) setLoading(false);
       }
-    } catch (e) {
-      setMsg(getError(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [isMentor]);
+    },
+    [isMentor]
+  );
 
+  // Pehli load + har 6 second mein chupchap refresh (dono taraf live update ke liye)
   useEffect(() => {
     load();
+
+    const timer = setInterval(() => {
+      if (!document.hidden) load(true);
+    }, 6000);
+
+    return () => clearInterval(timer);
   }, [load]);
 
   const respond = async (id, status) => {
     try {
-      await api.put(
-        `/appointments/${id}/respond`,
-        { status }
-      );
+      await api.put(`/appointments/${id}/respond`, { status });
 
-      await load();
+      await load(true);
 
       setMsg(
-        status === 'accepted'
-          ? 'Request accepted.'
-          : 'Request rejected.'
+        status === 'accepted' ? 'Request accepted.' : 'Request rejected.'
       );
     } catch (e) {
       setMsg(getError(e));
@@ -91,11 +124,8 @@ export default function Appointments() {
       setCompletingId(appointment._id);
       setMsg('');
 
-      await api.put(
-        `/appointments/${appointment._id}/complete`
-      );
+      await api.put(`/appointments/${appointment._id}/complete`);
 
-      // Keep the completed appointment visible in history.
       setItems((prev) =>
         prev.map((item) =>
           item._id === appointment._id
@@ -103,6 +133,8 @@ export default function Appointments() {
             : item
         )
       );
+
+      prevStatusRef.current.set(appointment._id, 'completed');
 
       setConfirmCompleteAppointment(null);
 
@@ -117,35 +149,21 @@ export default function Appointments() {
   };
 
   const openChat = (appointmentId) => {
-    navigate(
-      `/dashboard/messages?appointmentId=${appointmentId}`
-    );
+    navigate(`/dashboard/messages?appointmentId=${appointmentId}`);
   };
 
   const openVideoCall = (appointment) => {
-    const room =
-      appointment.room ||
-      `dailygram-${appointment._id}`;
+    const room = appointment.room || `dailygram-${appointment._id}`;
 
-    const jitsiUrl =
-      `https://meet.jit.si/${encodeURIComponent(room)}`;
+    const jitsiUrl = `https://meet.jit.si/${encodeURIComponent(room)}`;
 
-    window.open(
-      jitsiUrl,
-      '_blank',
-      'noopener,noreferrer'
-    );
+    window.open(jitsiUrl, '_blank', 'noopener,noreferrer');
   };
 
   const openRating = (appointment) => {
     setRatingAppointment(appointment);
 
-    setRatingValue(
-      appointment.rating !== null &&
-      appointment.rating !== undefined
-        ? Number(appointment.rating)
-        : 0
-    );
+    setRatingValue(isRated(appointment) ? Number(appointment.rating) : 0);
 
     setReview(appointment.review || '');
     setMsg('');
@@ -162,11 +180,7 @@ export default function Appointments() {
   const submitRating = async () => {
     if (!ratingAppointment) return;
 
-    // Already-rated appointment cannot be rated again.
-    if (
-      ratingAppointment.rating !== null &&
-      ratingAppointment.rating !== undefined
-    ) {
+    if (isRated(ratingAppointment)) {
       setMsg('This appointment has already been rated.');
       return;
     }
@@ -189,23 +203,16 @@ export default function Appointments() {
       setRatingSubmitting(true);
       setMsg('');
 
-      await api.post(
-        `/rating/${ratingAppointment._id}`,
-        {
-          rating: ratingValue,
-          review: review.trim(),
-        }
-      );
+      await api.post(`/rating/${ratingAppointment._id}`, {
+        rating: ratingValue,
+        review: review.trim(),
+      });
 
-      // Keep the completed appointment visible after rating.
+      // Rating ke baad appointment list se hat jayegi (visibleItems filter dekho)
       setItems((prev) =>
         prev.map((item) =>
           item._id === ratingAppointment._id
-            ? {
-                ...item,
-                rating: ratingValue,
-                review: review.trim(),
-              }
+            ? { ...item, rating: ratingValue, review: review.trim() }
             : item
         )
       );
@@ -214,9 +221,7 @@ export default function Appointments() {
       setRatingValue(0);
       setReview('');
 
-      setMsg(
-        'Rating submitted successfully. Thank you!'
-      );
+      setMsg('Rating submitted successfully. Thank you!');
     } catch (e) {
       setMsg(getError(e));
     } finally {
@@ -236,25 +241,20 @@ export default function Appointments() {
       );
 
       if (existingScript) {
-        existingScript.addEventListener(
-          'load',
-          () => resolve(true),
-          { once: true }
-        );
+        existingScript.addEventListener('load', () => resolve(true), {
+          once: true,
+        });
 
-        existingScript.addEventListener(
-          'error',
-          () => resolve(false),
-          { once: true }
-        );
+        existingScript.addEventListener('error', () => resolve(false), {
+          once: true,
+        });
 
         return;
       }
 
       const script = document.createElement('script');
 
-      script.src =
-        'https://checkout.razorpay.com/v1/checkout.js';
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
 
       script.async = true;
 
@@ -275,28 +275,17 @@ export default function Appointments() {
       const loaded = await loadRazorpay();
 
       if (!loaded) {
-        setMsg(
-          'Payment system could not be loaded. Please try again.'
-        );
+        setMsg('Payment system could not be loaded. Please try again.');
         setPayingId('');
         return;
       }
 
-      const { data } = await api.post(
-        '/payments/mentorship/order',
-        {
-          appointmentId: appointment._id,
-        }
-      );
+      const { data } = await api.post('/payments/mentorship/order', {
+        appointmentId: appointment._id,
+      });
 
-      if (
-        !data?.keyId ||
-        !data?.order?.id ||
-        !data?.order?.amount
-      ) {
-        throw new Error(
-          'Invalid payment order received from server.'
-        );
+      if (!data?.keyId || !data?.order?.id || !data?.order?.amount) {
+        throw new Error('Invalid payment order received from server.');
       }
 
       const options = {
@@ -304,13 +293,11 @@ export default function Appointments() {
 
         amount: data.order.amount,
 
-        currency:
-          data.order.currency || 'INR',
+        currency: data.order.currency || 'INR',
 
         name: 'Dailygram',
 
-        description:
-          `Mentorship - ${appointment.skill}`,
+        description: `Mentorship - ${appointment.skill}`,
 
         order_id: data.order.id,
 
@@ -332,25 +319,19 @@ export default function Appointments() {
 
         handler: async (response) => {
           try {
-            await api.post(
-              '/payments/mentorship/verify',
-              {
-                razorpay_order_id:
-                  response.razorpay_order_id,
+            await api.post('/payments/mentorship/verify', {
+              razorpay_order_id: response.razorpay_order_id,
 
-                razorpay_payment_id:
-                  response.razorpay_payment_id,
+              razorpay_payment_id: response.razorpay_payment_id,
 
-                razorpay_signature:
-                  response.razorpay_signature,
-              }
-            );
+              razorpay_signature: response.razorpay_signature,
+            });
 
             setMsg(
               'Payment successful! Chat and video call are now unlocked.'
             );
 
-            await load();
+            await load(true);
           } catch (error) {
             setMsg(getError(error));
           } finally {
@@ -359,20 +340,15 @@ export default function Appointments() {
         },
       };
 
-      const razorpay =
-        new window.Razorpay(options);
+      const razorpay = new window.Razorpay(options);
 
-      razorpay.on(
-        'payment.failed',
-        (response) => {
-          setMsg(
-            response.error?.description ||
-            'Payment failed. Please try again.'
-          );
+      razorpay.on('payment.failed', (response) => {
+        setMsg(
+          response.error?.description || 'Payment failed. Please try again.'
+        );
 
-          setPayingId('');
-        }
-      );
+        setPayingId('');
+      });
 
       razorpay.open();
     } catch (error) {
@@ -381,22 +357,14 @@ export default function Appointments() {
     }
   };
 
-  const renderStars = (
-    value,
-    clickable = false,
-    disabled = false
-  ) => {
+  const renderStars = (value, clickable = false, disabled = false) => {
     return (
       <div className="flex items-center gap-1">
         {[1, 2, 3, 4, 5].map((star) => (
           <button
             key={star}
             type="button"
-            disabled={
-              !clickable ||
-              disabled ||
-              ratingSubmitting
-            }
+            disabled={!clickable || disabled || ratingSubmitting}
             onClick={() => {
               if (clickable && !disabled) {
                 setRatingValue(star);
@@ -406,11 +374,7 @@ export default function Appointments() {
               clickable && !disabled
                 ? 'cursor-pointer hover:scale-110'
                 : 'cursor-default'
-            } ${
-              star <= value
-                ? 'text-amber-400'
-                : 'text-slate-300'
-            }`}
+            } ${star <= value ? 'text-amber-400' : 'text-slate-300'}`}
             aria-label={`${star} star`}
           >
             ★
@@ -420,27 +384,26 @@ export default function Appointments() {
     );
   };
 
+  // Rating ho chuki completed appointments learner aur mentor dono ki list se hat jati hain
+  const visibleItems = items.filter(
+    (a) => !(a.status === 'completed' && isRated(a))
+  );
+
   const renderBodyContent = () => {
     if (loading) {
       return (
         <div className="flex items-center gap-3 justify-center text-slate-500 py-16 bg-white border border-slate-200 rounded-2xl shadow-xs">
           <Spinner />
-          <span className="text-sm font-medium">
-            Loading appointments…
-          </span>
+          <span className="text-sm font-medium">Loading appointments…</span>
         </div>
       );
     }
 
-    if (!items.length) {
+    if (!visibleItems.length) {
       return (
         <Empty
           icon="📭"
-          title={
-            isMentor
-              ? 'No pending requests'
-              : 'No appointments yet'
-          }
+          title={isMentor ? 'No pending requests' : 'No appointments yet'}
           text={
             isMentor
               ? 'New learner requests will appear here.'
@@ -452,53 +415,36 @@ export default function Appointments() {
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {items.map((appointment) => {
-          const otherPerson =
-            isMentor
-              ? appointment.learnerId
-              : appointment.mentorId;
+        {visibleItems.map((appointment) => {
+          const otherPerson = isMentor
+            ? appointment.learnerId
+            : appointment.mentorId;
 
-          const personName =
-            otherPerson?.name || 'User';
+          const personName = otherPerson?.name || 'User';
 
-          const personEmail =
-            otherPerson?.email || '';
+          const personEmail = otherPerson?.email || '';
 
-          const firstInitial =
-            personName.charAt(0).toUpperCase();
+          const firstInitial = personName.charAt(0).toUpperCase();
 
-          const isPending =
-            appointment.status === 'pending';
+          const isPending = appointment.status === 'pending';
 
-          const isAccepted =
-            appointment.status === 'accepted';
+          const isAccepted = appointment.status === 'accepted';
 
-          const isCompleted =
-            appointment.status === 'completed';
+          const isCompleted = appointment.status === 'completed';
 
-          const price =
-            Number(
-              appointment.mentorshipPrice || 0
-            );
+          const price = Number(appointment.mentorshipPrice || 0);
 
-          const isPaid =
-            appointment.paymentStatus === 'paid';
+          const isPaid = appointment.paymentStatus === 'paid';
 
-          const isFree =
-            price <= 0;
+          const isFree = price <= 0;
 
-          const isPaymentPending =
-            !isFree && !isPaid;
+          const isPaymentPending = !isFree && !isPaid;
 
-          const isPaying =
-            payingId === appointment._id;
+          const isPaying = payingId === appointment._id;
 
-          const isCompleting =
-            completingId === appointment._id;
+          const isCompleting = completingId === appointment._id;
 
-          const hasRating =
-            appointment.rating !== null &&
-            appointment.rating !== undefined;
+          const hasRating = isRated(appointment);
 
           return (
             <article
@@ -560,24 +506,14 @@ export default function Appointments() {
               {isPending && isMentor && (
                 <div className="flex gap-2">
                   <button
-                    onClick={() =>
-                      respond(
-                        appointment._id,
-                        'accepted'
-                      )
-                    }
+                    onClick={() => respond(appointment._id, 'accepted')}
                     className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 rounded-lg text-xs transition-colors shadow-2xs cursor-pointer"
                   >
                     Accept
                   </button>
 
                   <button
-                    onClick={() =>
-                      respond(
-                        appointment._id,
-                        'rejected'
-                      )
-                    }
+                    onClick={() => respond(appointment._id, 'rejected')}
                     className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 rounded-lg text-xs transition-colors shadow-2xs cursor-pointer"
                   >
                     Reject
@@ -591,19 +527,13 @@ export default function Appointments() {
                   {/* PRICE + PAYMENT */}
                   <div className="bg-slate-50 border border-slate-200/60 p-3 rounded-lg text-xs">
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-500">
-                        Mentorship fee
-                      </span>
+                      <span className="text-slate-500">Mentorship fee</span>
 
-                      <strong className="text-slate-900">
-                        ₹{price}
-                      </strong>
+                      <strong className="text-slate-900">₹{price}</strong>
                     </div>
 
                     <div className="mt-1 flex items-center justify-between">
-                      <span className="text-slate-500">
-                        Payment
-                      </span>
+                      <span className="text-slate-500">Payment</span>
 
                       <strong
                         className={
@@ -614,54 +544,33 @@ export default function Appointments() {
                               : 'text-amber-600'
                         }
                       >
-                        {isFree
-                          ? 'Not required'
-                          : isPaid
-                            ? 'Paid'
-                            : 'Pending'}
+                        {isFree ? 'Not required' : isPaid ? 'Paid' : 'Pending'}
                       </strong>
                     </div>
                   </div>
 
                   {/* ROOM */}
                   <div className="bg-slate-50 border border-slate-200/60 p-2.5 rounded-lg text-xs flex items-center justify-between gap-2">
-                    <span>
-                      Room:
-                    </span>
+                    <span>Room:</span>
 
                     <code className="font-mono font-bold text-indigo-600 bg-white border border-slate-200 px-1.5 py-0.5 rounded truncate">
-                      {appointment.room ||
-                        `dailygram-${appointment._id}`}
+                      {appointment.room || `dailygram-${appointment._id}`}
                     </code>
                   </div>
 
                   {/* CHAT + VIDEO */}
                   <div className="flex gap-2">
                     <button
-                      onClick={() =>
-                        openChat(
-                          appointment._id
-                        )
-                      }
-                      disabled={
-                        !isFree &&
-                        !isPaid
-                      }
+                      onClick={() => openChat(appointment._id)}
+                      disabled={!isFree && !isPaid}
                       className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold py-2 rounded-lg text-xs"
                     >
                       💬 Message
                     </button>
 
                     <button
-                      onClick={() =>
-                        openVideoCall(
-                          appointment
-                        )
-                      }
-                      disabled={
-                        !isFree &&
-                        !isPaid
-                      }
+                      onClick={() => openVideoCall(appointment)}
+                      disabled={!isFree && !isPaid}
                       className="flex-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-semibold py-2 rounded-lg text-xs"
                     >
                       📹 Video Call
@@ -672,92 +581,72 @@ export default function Appointments() {
                   {isMentor && isAccepted && (
                     <button
                       type="button"
-                      onClick={() =>
-                        setConfirmCompleteAppointment(appointment)
-                      }
-                      disabled={
-                        isCompleting ||
-                        (!isFree && !isPaid)
-                      }
+                      onClick={() => setConfirmCompleteAppointment(appointment)}
+                      disabled={isCompleting || (!isFree && !isPaid)}
                       className="w-full bg-slate-900 hover:bg-black disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-lg text-xs transition-colors"
                     >
                       {isCompleting
                         ? 'Completing session...'
-                        : (!isFree && !isPaid)
+                        : !isFree && !isPaid
                           ? 'Complete after payment'
                           : '✅ Mark Session Completed'}
                     </button>
                   )}
 
+                  {/* MENTOR: rating ka wait */}
+                  {isMentor && isCompleted && (
+                    <p className="text-center text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-200 rounded-lg py-2">
+                      Waiting for the learner&apos;s rating…
+                    </p>
+                  )}
+
                   {/* LEARNER PAYMENT */}
-                  {!isMentor &&
-                    isAccepted &&
-                    isPaymentPending && (
-                      <button
-                        disabled={isPaying}
-                        onClick={() =>
-                          payForAppointment(
-                            appointment
-                          )
-                        }
-                        className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg text-sm transition-colors"
-                      >
-                        {isPaying
-                          ? 'Opening payment...'
-                          : `💳 Pay ₹${price}`}
-                      </button>
-                    )}
+                  {!isMentor && isAccepted && isPaymentPending && (
+                    <button
+                      disabled={isPaying}
+                      onClick={() => payForAppointment(appointment)}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg text-sm transition-colors"
+                    >
+                      {isPaying ? 'Opening payment...' : `💳 Pay ₹${price}`}
+                    </button>
+                  )}
 
                   {/* LEARNER RATING */}
-                  {!isMentor &&
-                    isCompleted && (
-                      <div className="border border-amber-200 bg-amber-50 rounded-xl p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-bold text-slate-900">
-                              {hasRating
-                                ? 'Your rating'
-                                : 'Rate your mentor'}
-                            </p>
+                  {!isMentor && isCompleted && (
+                    <div className="border border-amber-200 bg-amber-50 rounded-xl p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">
+                            {hasRating ? 'Your rating' : 'Rate your mentor'}
+                          </p>
 
-                            {hasRating && (
-                              <div className="mt-1 flex items-center gap-2">
-                                {renderStars(
-                                  Number(
-                                    appointment.rating
-                                  )
-                                )}
+                          {hasRating && (
+                            <div className="mt-1 flex items-center gap-2">
+                              {renderStars(Number(appointment.rating))}
 
-                                <span className="text-xs font-bold text-slate-700">
-                                  {appointment.rating}/5
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openRating(
-                                appointment
-                              )
-                            }
-                            className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-2 rounded-lg text-xs transition-colors"
-                          >
-                            {hasRating
-                              ? 'View Rating'
-                              : '⭐ Rate'}
-                          </button>
+                              <span className="text-xs font-bold text-slate-700">
+                                {appointment.rating}/5
+                              </span>
+                            </div>
+                          )}
                         </div>
 
-                        {hasRating &&
-                          appointment.review && (
-                            <p className="mt-2 text-xs text-slate-600 italic">
-                              “{appointment.review}”
-                            </p>
-                          )}
+                        <button
+                          type="button"
+                          onClick={() => openRating(appointment)}
+                          className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-2 rounded-lg text-xs transition-colors"
+                        >
+                          {hasRating ? 'View Rating' : '⭐ Rate'}
+                        </button>
                       </div>
-                    )}
+
+                      {hasRating && appointment.review && (
+                        <p className="mt-2 text-xs text-slate-600 italic">
+                          “{appointment.review}”
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </article>
@@ -767,10 +656,7 @@ export default function Appointments() {
     );
   };
 
-  const ratingAlreadySubmitted =
-    ratingAppointment &&
-    ratingAppointment.rating !== null &&
-    ratingAppointment.rating !== undefined;
+  const ratingAlreadySubmitted = ratingAppointment && isRated(ratingAppointment);
 
   return (
     <div className="space-y-8">
@@ -780,9 +666,7 @@ export default function Appointments() {
         </span>
 
         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
-          {isMentor
-            ? 'Incoming requests'
-            : 'Your sessions'}
+          {isMentor ? 'Incoming requests' : 'Your sessions'}
         </h1>
 
         <p className="text-slate-500 mt-1 text-sm leading-relaxed">
@@ -792,9 +676,7 @@ export default function Appointments() {
         </p>
       </header>
 
-      <main className="w-full">
-        {renderBodyContent()}
-      </main>
+      <main className="w-full">{renderBodyContent()}</main>
 
       {/* COMPLETE CONFIRMATION MODAL */}
       {confirmCompleteAppointment && (
@@ -828,8 +710,9 @@ export default function Appointments() {
                   Are you sure you want to mark this session as completed?
                 </p>
                 <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                  The appointment will remain in both users' history, and the
-                  learner will be able to rate and review the session.
+                  The learner will be asked to rate this session. Once the
+                  learner submits the rating, the appointment will be removed
+                  from both your lists.
                 </p>
               </div>
 
@@ -845,9 +728,7 @@ export default function Appointments() {
 
                 <button
                   type="button"
-                  onClick={() =>
-                    completeAppointment(confirmCompleteAppointment)
-                  }
+                  onClick={() => completeAppointment(confirmCompleteAppointment)}
                   disabled={!!completingId}
                   className="flex-1 bg-slate-900 hover:bg-black disabled:bg-slate-300 text-white font-bold py-3 rounded-xl text-sm"
                 >
@@ -864,10 +745,7 @@ export default function Appointments() {
         <div
           className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4"
           onMouseDown={(e) => {
-            if (
-              e.target === e.currentTarget &&
-              !ratingSubmitting
-            ) {
+            if (e.target === e.currentTarget && !ratingSubmitting) {
               closeRating();
             }
           }}
@@ -931,17 +809,12 @@ export default function Appointments() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-2">
-                  Review{' '}
-                  <span className="text-slate-400">
-                    (optional)
-                  </span>
+                  Review <span className="text-slate-400">(optional)</span>
                 </label>
 
                 <textarea
                   value={review}
-                  onChange={(e) =>
-                    setReview(e.target.value)
-                  }
+                  onChange={(e) => setReview(e.target.value)}
                   disabled={ratingAlreadySubmitted}
                   maxLength={500}
                   rows={4}
@@ -961,24 +834,17 @@ export default function Appointments() {
                   disabled={ratingSubmitting}
                   className="flex-1 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-bold py-2.5 rounded-xl text-sm"
                 >
-                  {ratingAlreadySubmitted
-                    ? 'Close'
-                    : 'Cancel'}
+                  {ratingAlreadySubmitted ? 'Close' : 'Cancel'}
                 </button>
 
                 {!ratingAlreadySubmitted && (
                   <button
                     type="button"
                     onClick={submitRating}
-                    disabled={
-                      ratingSubmitting ||
-                      ratingValue < 1
-                    }
+                    disabled={ratingSubmitting || ratingValue < 1}
                     className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-xl text-sm"
                   >
-                    {ratingSubmitting
-                      ? 'Submitting...'
-                      : 'Submit Rating'}
+                    {ratingSubmitting ? 'Submitting...' : 'Submit Rating'}
                   </button>
                 )}
               </div>
