@@ -8,7 +8,6 @@ export default function EnableNotifications() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  // Permission pehle se mili hai to chupchap subscribe + backend save kar do
   useEffect(() => {
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       enablePush().catch((e) => console.error('auto subscribe failed:', e));
@@ -25,22 +24,22 @@ export default function EnableNotifications() {
       if (result.ok) {
         setEnabled(true);
       } else if (result.reason === 'denied') {
-        setError('Notifications blocked hain. Browser ki site settings se allow karo.');
+        setError('Notifications are blocked. Please allow them from your browser site settings.');
       } else if (result.reason === 'unsupported') {
-        setError('Is browser mein notifications supported nahi hain.');
+        setError('Notifications are not supported in this browser.');
       } else {
-        setError('Notifications setup nahi ho paye.');
+        setError('Could not set up notifications.');
       }
     } catch (e) {
       console.error('enablePush failed:', e);
-      setError('Kuch gadbad ho gayi, dobara try karo.');
+      setError('Something went wrong, please try again.');
     } finally {
       setBusy(false);
     }
   };
 
   if (enabled) {
-    return <p className="text-xs font-semibold text-emerald-600">🔔 Notifications on hain</p>;
+    return <p className="text-xs font-semibold text-emerald-600">🔔 Notifications are enabled</p>;
   }
 
   return (
