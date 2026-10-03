@@ -191,7 +191,7 @@ export default function DashboardLayout() {
                     </div>
 
                 </div>
-
+                        <EnableNotifications />
                 {/* NAVIGATION */}
                 <nav className="flex-1 px-3 py-4 overflow-y-auto">
 
