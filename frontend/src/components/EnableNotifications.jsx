@@ -26,6 +26,7 @@ export default function EnableNotifications() {
         setError('Notifications setup nahi ho paye.');
       }
     } catch (e) {
+      console.error('enablePush failed:', e); // asli error console mein dikhega
       setError('Kuch gadbad ho gayi, dobara try karo.');
     } finally {
       setBusy(false);
@@ -40,7 +41,7 @@ export default function EnableNotifications() {
     <div>
       <button
         type="button"
-        onClick={handleClick} // permission user ke click par hi maangni chahiye
+        onClick={handleClick}
         disabled={busy}
         className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-indigo-700 disabled:opacity-50"
       >
