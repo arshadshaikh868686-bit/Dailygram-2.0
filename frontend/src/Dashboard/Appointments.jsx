@@ -15,6 +15,7 @@ export default function Appointments() {
 
   const [payingId, setPayingId] = useState('');
   const [completingId, setCompletingId] = useState('');
+  const [confirmCompleteAppointment, setConfirmCompleteAppointment] = useState(null);
 
   const [ratingAppointment, setRatingAppointment] = useState(null);
   const [ratingValue, setRatingValue] = useState(0);
@@ -94,7 +95,16 @@ export default function Appointments() {
         `/appointments/${appointment._id}/complete`
       );
 
-      await load();
+      // Keep the completed appointment visible in history.
+      setItems((prev) =>
+        prev.map((item) =>
+          item._id === appointment._id
+            ? { ...item, status: 'completed' }
+            : item
+        )
+      );
+
+      setConfirmCompleteAppointment(null);
 
       setMsg(
         'Session marked as completed. The learner can now submit a rating.'
@@ -187,7 +197,18 @@ export default function Appointments() {
         }
       );
 
-      await load();
+      // Keep the completed appointment visible after rating.
+      setItems((prev) =>
+        prev.map((item) =>
+          item._id === ratingAppointment._id
+            ? {
+                ...item,
+                rating: ratingValue,
+                review: review.trim(),
+              }
+            : item
+        )
+      );
 
       setRatingAppointment(null);
       setRatingValue(0);
@@ -652,9 +673,7 @@ export default function Appointments() {
                     <button
                       type="button"
                       onClick={() =>
-                        completeAppointment(
-                          appointment
-                        )
+                        setConfirmCompleteAppointment(appointment)
                       }
                       disabled={
                         isCompleting ||
@@ -776,6 +795,69 @@ export default function Appointments() {
       <main className="w-full">
         {renderBodyContent()}
       </main>
+
+      {/* COMPLETE CONFIRMATION MODAL */}
+      {confirmCompleteAppointment && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="p-5 border-b border-slate-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-indigo-600">
+                    Complete Session
+                  </p>
+                  <h2 className="text-xl font-extrabold text-slate-900 mt-1">
+                    Mark appointment as completed?
+                  </h2>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setConfirmCompleteAppointment(null)}
+                  disabled={!!completingId}
+                  className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-5">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="text-sm font-semibold text-slate-900">
+                  Are you sure you want to mark this session as completed?
+                </p>
+                <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                  The appointment will remain in both users' history, and the
+                  learner will be able to rate and review the session.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setConfirmCompleteAppointment(null)}
+                  disabled={!!completingId}
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-3 rounded-xl text-sm"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    completeAppointment(confirmCompleteAppointment)
+                  }
+                  disabled={!!completingId}
+                  className="flex-1 bg-slate-900 hover:bg-black disabled:bg-slate-300 text-white font-bold py-3 rounded-xl text-sm"
+                >
+                  {completingId ? 'Completing...' : 'Yes, Complete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* RATING MODAL */}
       {ratingAppointment && (
