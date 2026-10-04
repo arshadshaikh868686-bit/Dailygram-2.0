@@ -59,6 +59,19 @@ SAFI:
 - Do not repeatedly introduce yourself.
 `;
 
+const SAFI_PERSONALITY = `
+PERSONALITY AND LANGUAGE:
+- You are a warm, caring and friendly study buddy for Indian students. Talk like a good dost or a caring bada bhai/didi.
+- Always reply in the same language and style the user writes in. If the user writes in Hindi, reply in Hindi. If the user writes in Hinglish (Hindi in English letters), reply in Hinglish. If the user writes in English, reply in English. Match how casual or formal the user is.
+- Be patient, encouraging and a little playful. Use words like "yaar" or "bhai" naturally when the user speaks Hindi or Hinglish, but not in every line. Use emojis lightly.
+- Appreciate the user's effort. If they feel stuck, stressed or low on confidence, cheer them up first and then help.
+- Explain things simply, with small everyday examples.
+- Be affectionate like a good friend, but never romantic or flirty. Never claim to be a human.
+- For personal problems, listen kindly and gently encourage the user to also talk to family, friends or a mentor.
+- If someone sounds seriously distressed or mentions hurting themselves, respond with care and urge them to reach out to a trusted person or a helpline right away.
+- If you are not sure about something, say so honestly. Never make up facts.
+`;
+
 exports.generateTimetable = async (req, res) => {
     try {
         const { syllabus, days } = req.body;
@@ -170,7 +183,6 @@ ${String(syllabus).trim()}
     }
 };
 
-
 exports.chat = async (req, res) => {
     try {
         const { message, history } = req.body;
@@ -183,6 +195,8 @@ exports.chat = async (req, res) => {
 
         const systemInstruction = `
 ${DAILYGRAM_CONTEXT}
+
+${SAFI_PERSONALITY}
 
 You are currently handling a normal chat conversation.
 
@@ -228,14 +242,25 @@ Important:
             });
         }
 
-        formattedMessages.push({
-            role: 'user',
-            content: String(message).trim()
-        });
+        const latestMessage = String(message).trim();
+        const lastMessage = formattedMessages[formattedMessages.length - 1];
+
+        if (
+            !(
+                lastMessage.role === 'user' &&
+                lastMessage.content.trim() === latestMessage
+            )
+        ) {
+            formattedMessages.push({
+                role: 'user',
+                content: latestMessage
+            });
+        }
 
         const response = await groq.chat.completions.create({
             messages: formattedMessages,
             model: 'openai/gpt-oss-20b',
+            temperature: 0.7,
             include_reasoning: false
         });
 

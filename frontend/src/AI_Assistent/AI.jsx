@@ -13,18 +13,12 @@ import {
 const CHAT_STORAGE_KEY = 'dailygram_safi_chat';
 const MAX_HISTORY_MESSAGES = 50;
 
-
 const cleanAIText = (value = '') => {
   return String(value)
-    // HTML line breaks
     .replace(/<br\s*\/?>/gi, '\n')
-
-    // Paragraph tags
     .replace(/<\/p>\s*<p>/gi, '\n\n')
     .replace(/<p>/gi, '')
     .replace(/<\/p>/gi, '\n')
-
-    // Common formatting tags
     .replace(/<strong>/gi, '**')
     .replace(/<\/strong>/gi, '**')
     .replace(/<b>/gi, '**')
@@ -33,28 +27,18 @@ const cleanAIText = (value = '') => {
     .replace(/<\/em>/gi, '*')
     .replace(/<i>/gi, '*')
     .replace(/<\/i>/gi, '*')
-
-    // HTML entities
     .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/gi, '&')
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
     .replace(/&#39;/gi, "'")
     .replace(/&quot;/gi, '"')
-
-    // Remove any remaining HTML tags
     .replace(/<[^>]*>/g, '')
-
-    // Windows line endings
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
-
-    // Too many blank lines
     .replace(/\n{3,}/g, '\n\n')
-
     .trim();
 };
-
 
 const renderInline = (text) => {
   const parts = String(text).split(
@@ -95,7 +79,6 @@ const renderInline = (text) => {
   });
 };
 
-
 const renderAIMessage = (text) => {
   const cleaned = cleanAIText(text);
 
@@ -108,11 +91,8 @@ const renderAIMessage = (text) => {
   return (
     <div className="space-y-3">
       {sections.map((section, sectionIndex) => {
-        
         if (sectionIndex % 2 === 1) {
           const codeLines = section.split('\n');
-
-          
           let language = '';
           let code = section;
 
@@ -140,7 +120,6 @@ const renderAIMessage = (text) => {
         }
 
         const lines = section.split('\n');
-
         const elements = [];
         let paragraph = [];
 
@@ -167,13 +146,11 @@ const renderAIMessage = (text) => {
         lines.forEach((line, index) => {
           const trimmed = line.trim();
 
-          
           if (!trimmed) {
             flushParagraph();
             return;
           }
 
-          
           if (/^#{1,6}\s+/.test(trimmed)) {
             flushParagraph();
 
@@ -191,7 +168,6 @@ const renderAIMessage = (text) => {
             return;
           }
 
-         
           if (/^[-*•]\s+/.test(trimmed)) {
             if (
               !elements.length ||
@@ -215,7 +191,6 @@ const renderAIMessage = (text) => {
 
             return;
           }
-
 
           if (/^\d+[.)]\s+/.test(trimmed)) {
             flushParagraph();
@@ -257,9 +232,7 @@ const renderAIMessage = (text) => {
 
 export default function AI() {
   const [mode, setMode] = useState('chat');
-
   const [chatInput, setChatInput] = useState('');
-
 
   const [chatMessages, setChatMessages] = useState(() => {
     try {
@@ -285,16 +258,12 @@ export default function AI() {
   });
 
   const [chatLoading, setChatLoading] = useState(false);
-
   const [syllabus, setSyllabus] = useState('');
   const [days, setDays] = useState('');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
-
   const [msg, setMsg] = useState('');
-
   const chatEndRef = useRef(null);
-
 
   useEffect(() => {
     try {
@@ -311,15 +280,11 @@ export default function AI() {
     }
   }, [chatMessages]);
 
- 
-
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({
       behavior: 'smooth',
     });
   }, [chatMessages, chatLoading]);
-
-
 
   const sendMessage = async (e) => {
     e?.preventDefault();
@@ -340,9 +305,7 @@ export default function AI() {
       userMessage,
     ].slice(-MAX_HISTORY_MESSAGES);
 
-    // Immediately show user message
     setChatMessages(updatedMessages);
-
     setChatInput('');
     setChatLoading(true);
     setMsg('');
@@ -350,10 +313,6 @@ export default function AI() {
     try {
       const response = await api.post('/ai/chat', {
         message: cleanMessage,
-
-        // IMPORTANT:
-        // Send updated history so Safi also receives
-        // the current user message.
         history: updatedMessages,
       });
 
@@ -390,15 +349,12 @@ export default function AI() {
     }
   };
 
-
   const handleChatKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage(e);
     }
   };
-
-
 
   const clearChat = () => {
     const confirmed = window.confirm(
@@ -421,8 +377,6 @@ export default function AI() {
       JSON.stringify([initialMessage])
     );
   };
-
-  
 
   const generate = async (e) => {
     e.preventDefault();
@@ -468,28 +422,22 @@ export default function AI() {
 
   return (
     <div className="space-y-8">
-
-
       <header>
         <span className="text-xs font-bold tracking-wider text-indigo-600 uppercase block mb-1">
           AI ASSISTANT
         </span>
-
         <h1 className="font-serif text-3xl font-bold tracking-normal text-gray-900">
           Meet{' '}
           <b className="font-bold text-blue-800">
             Safi
           </b>
         </h1>
-
         <p className="text-slate-500 mt-1 text-sm leading-relaxed">
           Chat normally with Safi or let Safi create a study timetable for you.
         </p>
       </header>
 
-
       <div className="bg-white border border-slate-200 rounded-2xl p-2 flex gap-2 shadow-sm">
-
         <button
           type="button"
           onClick={() => setMode('chat')}
@@ -502,7 +450,6 @@ export default function AI() {
           <FontAwesomeIcon icon={faComments} />
           Chat with Safi
         </button>
-
         <button
           type="button"
           onClick={() => setMode('planner')}
@@ -515,39 +462,28 @@ export default function AI() {
           <FontAwesomeIcon icon={faBookOpen} />
           Study Planner
         </button>
-
       </div>
 
       {mode === 'chat' && (
         <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-
-
           <div className="p-4 border-b border-slate-200 flex items-center justify-between gap-3 bg-slate-50/60">
-
             <div className="flex items-center gap-3">
-
               <div className="w-11 h-11 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden">
-
                 <img
                   className="h-full rounded-full w-full object-cover"
                   src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTFDVeCvsOm2mIDjslfeLI1NXWhc-DTTxnABsaBXwWYVw&s=10"
                   alt="Safi"
                 />
-
               </div>
-
               <div>
                 <h2 className="font-bold text-slate-900">
                   Safi
                 </h2>
-
                 <p className="text-xs text-green-600 font-medium">
                   ● Online
                 </p>
               </div>
-
             </div>
-
             <button
               type="button"
               onClick={clearChat}
@@ -561,12 +497,9 @@ export default function AI() {
               />
               Clear
             </button>
-
           </div>
 
-
           <div className="h-[470px] overflow-y-auto p-5 bg-slate-50/50 flex flex-col gap-4">
-
             {chatMessages.map((message, index) => {
               const isUser = message.role === 'user';
 
@@ -579,7 +512,6 @@ export default function AI() {
                       : 'justify-start'
                   }`}
                 >
-
                   <div
                     className={`max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
                       isUser
@@ -587,27 +519,18 @@ export default function AI() {
                         : 'bg-white text-slate-800 border border-slate-200 rounded-bl-none shadow-sm'
                     }`}
                   >
-
-                    {/* SAFI LABEL */}
-
                     {!isUser && (
                       <div className="flex items-center gap-2 mb-2">
-
                         <img
                           className="h-8 w-8 rounded-full object-cover"
                           src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTFDVeCvsOm2mIDjslfeLI1NXWhc-DTTxnABsaBXwWYVw&s=10"
                           alt="Safi"
                         />
-
                         <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
                           Safi
                         </span>
-
                       </div>
                     )}
-
-                    {/* MESSAGE */}
-
                     {isUser ? (
                       <div className="whitespace-pre-wrap break-words">
                         {message.text}
@@ -617,44 +540,31 @@ export default function AI() {
                         {renderAIMessage(message.text)}
                       </div>
                     )}
-
                   </div>
-
                 </div>
               );
             })}
 
-
             {chatLoading && (
               <div className="flex justify-start">
-
                 <div className="bg-white border border-slate-200 rounded-2xl rounded-bl-none px-4 py-3 shadow-sm">
-
                   <div className="flex items-center gap-2">
-
                     <Spinner />
-
                     <span className="text-xs text-slate-500">
                       Safi is typing...
                     </span>
-
                   </div>
-
                 </div>
-
               </div>
             )}
 
             <div ref={chatEndRef} />
-
           </div>
-
 
           <form
             onSubmit={sendMessage}
             className="p-3.5 border-t border-slate-200 bg-white flex gap-2.5 items-end"
           >
-
             <textarea
               value={chatInput}
               onChange={(e) =>
@@ -666,7 +576,6 @@ export default function AI() {
               disabled={chatLoading}
               className="flex-1 resize-none px-4 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50/50 transition-all disabled:bg-slate-50"
             />
-
             <button
               type="submit"
               disabled={
@@ -678,7 +587,6 @@ export default function AI() {
               <FontAwesomeIcon icon={faPaperPlane} />
               Send
             </button>
-
           </form>
 
           <div className="px-4 pb-3">
@@ -686,54 +594,37 @@ export default function AI() {
               Press Enter to send • Shift + Enter for a new line • Chat history is saved
             </p>
           </div>
-
         </div>
       )}
 
-
       {mode === 'planner' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-          {/* FORM */}
-
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-
             <div className="flex items-center gap-3 mb-6">
-
               <div className="w-11 h-11 rounded-xl bg-indigo-100 flex items-center justify-center">
-
                 <FontAwesomeIcon
                   icon={faCalendarDays}
                   className="text-indigo-600"
                 />
-
               </div>
-
               <div>
-
                 <h2 className="font-bold text-slate-900">
                   Study Planner
                 </h2>
-
                 <p className="text-xs text-slate-500">
                   Create a personalized timetable
                 </p>
-
               </div>
-
             </div>
 
             <form
               onSubmit={generate}
               className="space-y-5"
             >
-
               <div>
-
                 <label className="block text-xs font-bold text-slate-700 mb-2">
                   Syllabus / Topics
                 </label>
-
                 <textarea
                   value={syllabus}
                   onChange={(e) =>
@@ -743,15 +634,12 @@ export default function AI() {
                   rows={7}
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50/50 resize-none"
                 />
-
               </div>
 
               <div>
-
                 <label className="block text-xs font-bold text-slate-700 mb-2">
                   Number of Days
                 </label>
-
                 <input
                   type="number"
                   min="1"
@@ -763,7 +651,6 @@ export default function AI() {
                   placeholder="Example: 10"
                   className="w-full px-4 py-3 border border-slate-200 rounded-xl text-sm outline-none focus:border-indigo-600 focus:ring-4 focus:ring-indigo-50/50"
                 />
-
               </div>
 
               {msg && (
@@ -777,7 +664,6 @@ export default function AI() {
                 disabled={loading}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white py-3 rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-2"
               >
-
                 {loading ? (
                   <>
                     <Spinner />
@@ -789,115 +675,80 @@ export default function AI() {
                     Generate Timetable
                   </>
                 )}
-
               </button>
-
             </form>
-
           </div>
 
-
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
-
             <div className="flex items-center gap-3 mb-6">
-
               <div className="w-11 h-11 rounded-xl bg-indigo-100 flex items-center justify-center overflow-hidden">
-
                 <img
                   className="h-full w-full object-cover"
                   src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTFDVeCvsOm2mIDjslfeLI1NXWhc-DTTxnABsaBXwWYVw&s=10"
                   alt="Safi"
                 />
-
               </div>
-
               <div>
-
                 <h2 className="font-bold text-slate-900">
                   Your Timetable
                 </h2>
-
                 <p className="text-xs text-slate-500">
                   Generated by Safi
                 </p>
-
               </div>
-
             </div>
 
             {!data?.days?.length ? (
               <div className="h-[400px] flex items-center justify-center text-center">
-
                 <div>
-
                   <FontAwesomeIcon
                     icon={faBookOpen}
                     className="text-slate-300 text-4xl mb-4"
                   />
-
                   <h3 className="font-semibold text-slate-500">
                     No timetable yet
                   </h3>
-
                   <p className="text-xs text-slate-400 mt-1">
                     Enter your syllabus and generate your study plan.
                   </p>
-
                 </div>
-
               </div>
             ) : (
               <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
-
                 {data.days.map((day) => (
                   <div
                     key={day.day}
                     className="border border-slate-200 rounded-xl p-4"
                   >
-
                     <div className="flex items-center justify-between mb-2">
-
                       <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">
                         Day {day.day}
                       </span>
-
                     </div>
-
                     <div className="space-y-2">
-
                       {day.topics?.map((topic, index) => (
                         <div
                           key={index}
                           className="bg-slate-50 rounded-lg px-3 py-2"
                         >
-
                           <p className="text-sm font-semibold text-slate-800">
                             {topic}
                           </p>
-
                         </div>
                       ))}
-
                     </div>
-
                     {day.notes && (
                       <p className="text-xs text-slate-500 mt-3 leading-relaxed">
                         {day.notes}
                       </p>
                     )}
-
                   </div>
                 ))}
-
               </div>
             )}
-
           </div>
-
         </div>
       )}
-
-
 
       {msg && mode === 'chat' && (
         <Toast
@@ -905,7 +756,6 @@ export default function AI() {
           onClose={() => setMsg('')}
         />
       )}
-
     </div>
   );
 }

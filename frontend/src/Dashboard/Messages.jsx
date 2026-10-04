@@ -529,7 +529,7 @@ export default function Messages() {
 
       <div className="bg-white border border-slate-200 rounded-2xl flex flex-col h-[620px] overflow-hidden shadow-sm">
 
-        {/* Appointment channel */}
+       
         <div className="p-3.5 border-b border-slate-200 bg-slate-50/60 flex gap-2.5 items-center">
 
           <div className="flex-1 relative flex items-center">

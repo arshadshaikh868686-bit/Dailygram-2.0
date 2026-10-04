@@ -32,9 +32,6 @@ const createWebhookSignature = body => {
 
 const isValidObjectId = id => /^[a-fA-F0-9]{24}$/.test(String(id));
 
-/* =========================================================
-   PREMIUM PAYMENT
-========================================================= */
 
 exports.createPremiumOrder = async (req, res) => {
     try {
@@ -200,9 +197,6 @@ exports.verifyPremiumPayment = async (req, res) => {
     }
 };
 
-/* =========================================================
-   MENTORSHIP PAYMENT - CREATE ORDER
-========================================================= */
 
 exports.createMentorshipOrder = async (req, res) => {
     try {
@@ -229,9 +223,6 @@ exports.createMentorshipOrder = async (req, res) => {
             });
         }
 
-        /* -----------------------------------------
-           SECURITY CHECK
-        ----------------------------------------- */
 
         if (String(appointment.learnerId) !== String(learnerId)) {
             return res.status(403).json({
@@ -245,9 +236,6 @@ exports.createMentorshipOrder = async (req, res) => {
             });
         }
 
-        /* -----------------------------------------
-           CURRENT PRICE
-        ----------------------------------------- */
 
         const expectedAmount = Math.round(
             Number(appointment.mentorshipPrice || 0) * 100
@@ -259,24 +247,12 @@ exports.createMentorshipOrder = async (req, res) => {
             });
         }
 
-        /* -----------------------------------------
-           ALREADY PAID
-        ----------------------------------------- */
 
         if (appointment.paymentStatus === 'paid') {
             return res.status(409).json({
                 message: 'Appointment payment is already completed'
             });
-        }
-
-        /* -----------------------------------------
-           OLD PAYMENT ORDER
-           
-           If an old order exists but was never paid,
-           allow the learner to retry.
-
-           We DO NOT block the user anymore.
-        ----------------------------------------- */
+        }  
 
         const existingPayments = await Payment.find({
             appointmentId,
@@ -295,9 +271,6 @@ exports.createMentorshipOrder = async (req, res) => {
             }
         }
 
-        /* -----------------------------------------
-           CREATE NEW RAZORPAY ORDER
-        ----------------------------------------- */
 
         const order = await razorpay.orders.create({
             amount: expectedAmount,
@@ -305,9 +278,7 @@ exports.createMentorshipOrder = async (req, res) => {
             receipt: `mentor_${appointment._id}_${Date.now()}`
         });
 
-        /* -----------------------------------------
-           CREATE PAYMENT RECORD
-        ----------------------------------------- */
+
 
         const payment = await Payment.create({
             userId: learnerId,
@@ -320,18 +291,12 @@ exports.createMentorshipOrder = async (req, res) => {
             verified: false
         });
 
-        /* -----------------------------------------
-           UPDATE APPOINTMENT
-        ----------------------------------------- */
 
         appointment.paymentStatus = 'pending';
         appointment.paymentOrderId = order.id;
 
         await appointment.save();
 
-        /* -----------------------------------------
-           RESPONSE
-        ----------------------------------------- */
 
         return res.status(201).json({
             message: 'Mentorship payment order created successfully',
@@ -354,9 +319,6 @@ exports.createMentorshipOrder = async (req, res) => {
     }
 };
 
-/* =========================================================
-   MENTORSHIP PAYMENT - VERIFY
-========================================================= */
 
 exports.verifyMentorshipPayment = async (req, res) => {
     try {
@@ -388,9 +350,6 @@ exports.verifyMentorshipPayment = async (req, res) => {
             });
         }
 
-        /* -----------------------------------------
-           ALREADY VERIFIED
-        ----------------------------------------- */
 
         if (payment.status === 'paid' && payment.verified) {
             return res.status(200).json({
@@ -418,9 +377,6 @@ exports.verifyMentorshipPayment = async (req, res) => {
             });
         }
 
-        /* -----------------------------------------
-           APPOINTMENT MUST STILL BE ACCEPTED
-        ----------------------------------------- */
 
         if (appointment.status !== 'accepted') {
             return res.status(400).json({
@@ -428,9 +384,6 @@ exports.verifyMentorshipPayment = async (req, res) => {
             });
         }
 
-        /* -----------------------------------------
-           CURRENT APPOINTMENT PRICE
-        ----------------------------------------- */
 
         const expectedAmount = Math.round(
             Number(appointment.mentorshipPrice || 0) * 100
@@ -442,9 +395,6 @@ exports.verifyMentorshipPayment = async (req, res) => {
             });
         }
 
-        /* -----------------------------------------
-           PAYMENT AMOUNT SECURITY CHECK
-        ----------------------------------------- */
 
         if (Number(payment.amount) !== Number(expectedAmount)) {
             return res.status(400).json({
@@ -452,9 +402,6 @@ exports.verifyMentorshipPayment = async (req, res) => {
             });
         }
 
-        /* -----------------------------------------
-           SIGNATURE CHECK
-        ----------------------------------------- */
 
         const generatedSignature = createSignature(
             razorpay_order_id,
@@ -481,9 +428,6 @@ exports.verifyMentorshipPayment = async (req, res) => {
             });
         }
 
-        /* -----------------------------------------
-           SAVE PAYMENT
-        ----------------------------------------- */
 
         payment.paymentId = razorpay_payment_id;
         payment.status = 'paid';
@@ -491,9 +435,6 @@ exports.verifyMentorshipPayment = async (req, res) => {
 
         await payment.save();
 
-        /* -----------------------------------------
-           UPDATE APPOINTMENT
-        ----------------------------------------- */
 
         appointment.paymentStatus = 'paid';
         appointment.paymentOrderId = razorpay_order_id;
@@ -519,9 +460,7 @@ exports.verifyMentorshipPayment = async (req, res) => {
     }
 };
 
-/* =========================================================
-   RAZORPAY WEBHOOK
-========================================================= */
+
 
 exports.handleRazorpayWebhook = async (req, res) => {
     try {
@@ -564,9 +503,6 @@ exports.handleRazorpayWebhook = async (req, res) => {
         const paymentEntity =
             event.payload?.payment?.entity;
 
-        /* =========================================
-           PAYMENT CAPTURED
-        ========================================= */
 
         if (
             event.event === 'payment.captured' &&
@@ -587,7 +523,6 @@ exports.handleRazorpayWebhook = async (req, res) => {
 
                 await payment.save();
 
-                /* PREMIUM */
 
                 if (payment.type === 'premium') {
                     const user = await User.findById(
@@ -605,7 +540,6 @@ exports.handleRazorpayWebhook = async (req, res) => {
                     }
                 }
 
-                /* MENTORSHIP */
 
                 if (
                     payment.type === 'mentorship' &&
@@ -633,10 +567,6 @@ exports.handleRazorpayWebhook = async (req, res) => {
                 }
             }
         }
-
-        /* =========================================
-           PAYMENT FAILED
-        ========================================= */
 
         if (
             event.event === 'payment.failed' &&
