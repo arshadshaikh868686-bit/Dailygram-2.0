@@ -52,9 +52,8 @@ const AVAILABLE_SKILLS = [
   'Artificial Intelligence'
 ]
 
-/* ---------- helpers (duplicate mapping ek jagah) ---------- */
 
-// experience hamesha STRING rakha hai (input + payload dono me same type)
+
 const mapUserToForm = (data, defaultRole) => ({
   name: data?.name ?? '',
   companyName: data?.companyName ?? data?.company ?? '',
@@ -137,7 +136,6 @@ export default function Profile() {
         setPremiumEnabled(Boolean(data.premiumEnabled))
         setVerification(mapUserToVerification(data))
 
-        // sirf apni profile ka session update hota hai
         if (!isMentorProfile) {
           saveSession({
             ...cachedUser,
@@ -154,8 +152,7 @@ export default function Profile() {
     }
 
     loadProfile()
-    // cachedUser har render pe naya object hai, isliye deps me nahi daala (loop ho jaata)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [mentorId, isMentorProfile])
 
   const handleImageUpload = async event => {
@@ -205,7 +202,6 @@ export default function Profile() {
         throw new Error('Upload succeeded but no image URL returned.')
       }
 
-      // FIX: Cloudinary ka naya URL set hota hai (pehle purani image wapas set ho rahi thi)
       setFormData(prev => ({
         ...prev,
         profileImage: result.secure_url
@@ -347,7 +343,6 @@ export default function Profile() {
           ? formData.skills.filter(Boolean)
           : [],
         role: selectedRole,
-        // FIX: profileImage ab backend ko bhi ja rahi hai
         profileImage: formData.profileImage ?? ''
       }
 
@@ -361,7 +356,6 @@ export default function Profile() {
 
       const updatedUser = data?.user ?? data?.data ?? data
 
-      // `??` use kiya taaki 0 / '' jaisi valid values prev se overwrite na ho
       setFormData(prev => ({
         ...prev,
         name: updatedUser?.name ?? prev.name,
@@ -384,7 +378,6 @@ export default function Profile() {
         profileImage: updatedUser?.profileImage ?? prev.profileImage
       }))
 
-      // FIX: save ke baad session/localStorage bhi update (navbar etc. ke liye)
       saveSession({
         ...cachedUser,
         ...updatedUser,
@@ -460,11 +453,7 @@ export default function Profile() {
     />
   )
 
-  /*
-   * ========================================
-   * MENTOR PROFILE LOADING (galat layout ka flash nahi)
-   * ========================================
-   */
+
 
   if (isMentorProfile && isLoading) {
     return (
@@ -476,11 +465,6 @@ export default function Profile() {
     )
   }
 
-  /*
-   * ========================================
-   * OTHER MENTOR'S PUBLIC PROFILE
-   * ========================================
-   */
 
   if (isMentorProfile) {
     return (
@@ -710,12 +694,6 @@ export default function Profile() {
     )
   }
 
-  /*
-   * ========================================
-   * OWN PROFILE
-   * ========================================
-   */
-
   return (
     <div className="space-y-8">
       <header className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 sm:p-8">
@@ -844,7 +822,6 @@ export default function Profile() {
             className="max-w-3xl space-y-7 rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm sm:p-8"
             onSubmit={handleSaveProfile}
           >
-            {/* PROFILE PHOTO */}
 
             <div className="flex flex-col items-center gap-4 border-b border-slate-200 pb-7 sm:flex-row">
               <div className="h-28 w-28 shrink-0 overflow-hidden rounded-full border-4 border-white bg-blue-100 shadow-md">
@@ -998,7 +975,6 @@ export default function Profile() {
                   className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-slate-400"
                 />
 
-                {/* FIX: string state, isliye backspace se field khali ho sakta hai */}
                 <input
                   id="experience"
                   type="number"
