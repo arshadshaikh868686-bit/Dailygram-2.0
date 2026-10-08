@@ -1199,12 +1199,6 @@ export default function Profile() {
                   id="customSkill"
                   value={customSkill}
                   onChange={e => setCustomSkill(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      handleAddCustomSkill()
-                    }
-                  }}
                   placeholder="e.g. UI/UX Design"
                   className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500/40 focus:ring-4 focus:ring-blue-50"
                 />
