@@ -61,9 +61,7 @@ exports.UpdateProfile = async (req, res) => {
             });
         }
 
-        // -----------------------------
-        // BASIC PROFILE FIELDS
-        // -----------------------------
+       
 
         if (name !== undefined) {
             const cleanName = String(name).trim();
@@ -150,27 +148,13 @@ exports.UpdateProfile = async (req, res) => {
                 String(resumeUrl).trim();
         }
 
-        // -----------------------------
-        // MENTORSHIP PRICE
-        // -----------------------------
 
         let newMentorshipPrice = null;
         let shouldSyncAppointments = false;
 
-        /*
-         * IMPORTANT:
-         *
-         * mentorshipPrice can ONLY be changed when
-         * the user is currently a mentor.
-         *
-         * A learner changing profile/image/skills
-         * must never trigger this validation.
-         */
 
         if (mentorshipPrice !== undefined) {
 
-            // If current account is learner,
-            // reject price modification.
             if (currentRole !== 'mentor') {
                 return res.status(403).json({
                     message:
@@ -178,8 +162,6 @@ exports.UpdateProfile = async (req, res) => {
                 });
             }
 
-            // Also prevent changing price while
-            // switching away from mentor.
             if (targetRole !== 'mentor') {
                 return res.status(403).json({
                     message:
@@ -224,9 +206,6 @@ exports.UpdateProfile = async (req, res) => {
             }
         }
 
-        // -----------------------------
-        // MENTOR → LEARNER
-        // -----------------------------
 
         if (currentRole !== targetRole) {
 
@@ -240,17 +219,13 @@ exports.UpdateProfile = async (req, res) => {
             update.premiumEligible = false;
             update.premiumEnabled = false;
 
-            // When switching from mentor to learner,
-            // price becomes zero automatically.
+ 
             update.mentorshipPrice = 0;
 
             newMentorshipPrice = 0;
             shouldSyncAppointments = true;
         }
 
-        // -----------------------------
-        // NO CHANGES
-        // -----------------------------
 
         if (Object.keys(update).length === 0) {
             return res.status(400).json({
@@ -258,9 +233,7 @@ exports.UpdateProfile = async (req, res) => {
             });
         }
 
-        // -----------------------------
-        // UPDATE USER
-        // -----------------------------
+    
 
         const user =
             await User.findByIdAndUpdate(
@@ -278,9 +251,7 @@ exports.UpdateProfile = async (req, res) => {
             });
         }
 
-        // -----------------------------
-        // SYNC APPOINTMENTS
-        // -----------------------------
+      
 
         if (
             shouldSyncAppointments &&
@@ -335,9 +306,6 @@ exports.UpdateProfile = async (req, res) => {
             }
         }
 
-        // -----------------------------
-        // RESPONSE
-        // -----------------------------
 
         return res.status(200).json({
             message: 'Profile updated successfully',
